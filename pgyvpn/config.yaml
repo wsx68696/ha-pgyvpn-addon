@@ -1,0 +1,23 @@
+name: 蒲公英组网
+slug: pgyvpn
+version: 1.0.0
+description: 让 Home Assistant OS 主机加入贝锐蒲公英虚拟网络
+url: https://pgy.oray.com/download/
+arch:
+  - amd64
+  - aarch64
+  - armv7
+startup: services
+boot: auto
+host_network: true
+devices:
+  - /dev/net/tun
+privileged:
+  - NET_ADMIN
+apparmor: false
+options:
+  username: null
+  password: null
+schema:
+  username: str
+  password: password

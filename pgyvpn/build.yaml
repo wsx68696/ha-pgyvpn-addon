@@ -1,0 +1,4 @@
+build_from:
+  amd64: bestoray/pgyvpn:2.4.0
+  aarch64: bestoray/pgyvpn:2.4.0
+  armv7: bestoray/pgyvpn:2.4.0

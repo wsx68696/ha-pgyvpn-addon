@@ -4,7 +4,7 @@
 
 向官方加载项规范重构，构建不再依赖第三方镜像的 Alpine 环境。
 
-- **换用官方基础镜像** `ghcr.io/hassio-addons/base`（`build_from` 中声明，
+- **换用官方基础镜像** `ghcr.io/hassio-addons/base`（在 `build_from` 中声明，
   按架构区分 aarch64 / amd64）。不再把第三方镜像当作运行环境。
 - **修复构建失败的根因**：旧版 Dockerfile 把基础镜像自带的软件源覆盖成
   `latest-stable`，而基础镜像是 Alpine 3.16.3，`latest-stable` 当时已是
@@ -14,8 +14,7 @@
   官方客户端镜像多阶段 `COPY --from` 提取 `/usr/sbin/pgyvisitor`、
   `/usr/sbin/pgyvpn_svr` 和 `/usr/share/pgyvpn`。
   已验证这两个二进制是为 musl/Alpine 构建的
-  （解释器 `/lib/ld-musl-x86_64.so.1`，链接 `libc.musl-x86_64.so.1`、`libstdc++.so.6`），
-  因此可以脱离原镜像运行。
+  （解释器 `/lib/ld-musl-x86_64.so.1`），因此可以脱离原镜像运行。
 - **服务管理改用 s6-overlay**，移除 `run.sh` 与对 OpenRC `service` 命令的依赖。
   客户端进程异常退出会由 s6 自动重启。
 - **移除 armv7**：官方基础镜像不提供 32 位 ARM 变体。
@@ -23,10 +22,24 @@
   并补齐 `io.hass.name` / `io.hass.description` 镜像标签。
 - **Ingress 端口保持 8099**，并仅允许 Supervisor 代理 `172.30.32.2` 访问。
 
+### 开发过程中修掉的问题
+
+- **s6 服务未启动**：服务单元定义在 `s6-rc.d/` 下，但没有注册进
+  `s6-overlay/user-bundles.d/user/contents.d/`，s6-rc 不会拉起它们。
+  已补上 `pgyvpn`、`pgyvpn-monitor`、`nginx` 三个注册条目。
+- **`bashio::log.*` 报 command not found**：s6 的 `run` 脚本不会自动 `source`
+  bashio 库。已全部改用普通 `echo`，去掉对 bashio 的依赖。
+- **缺少运行时共享库**：`pgyvpn_svr` / `pgyvisitor` 的完整 `DT_NEEDED` 为
+  `libstdc++.so.6`、`libuuid.so.1`、`libgcc_s.so.1`、`libc.musl-x86_64.so.1`。
+  早期只装了 `libstdc++`，导致容器启动时报
+  `Error loading shared library libuuid.so.1`。已补装 `libuuid` 与 `libgcc`。
+- **`pgyvpn` 服务改为前台运行** `pgyvpn_svr`（不再传 `-d` 守护化参数），
+  使 s6 监管客户端进程本身，而不是一个立刻退出的父进程。
+
 ### 升级提示
 
 本版本把配置与日志的持久化位置统一到 `/data`（`/etc/oray/pgyvpn`
-和 `/var/log/oray` 以软链接指向 `/data`）。若从 1.0.x 升级且已有登录状态，
+与 `/var/log/oray` 软链接到 `/data`）。若从 1.0.x 升级且已有登录状态，
 重新填写账号密码即可。
 
 ## 1.0.3

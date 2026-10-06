@@ -17,11 +17,15 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG BUILD_ARCH
 ARG BUILD_VERSION
 
-# 1) 运行时依赖：
+# 1) 运行时依赖。两个客户端二进制的完整 DT_NEEDED 为：
+#      libstdc++.so.6  libuuid.so.1  libgcc_s.so.1  libc.musl-x86_64.so.1
+#    （libc.musl 由基础镜像的 musl 提供）
+#      libstdc++ - libstdc++.so.6
+#      libuuid   - libuuid.so.1      （Alpine 里不在 libstdc++ 的依赖里，必须显式装）
+#      libgcc    - libgcc_s.so.1     （同上）
 #      jq        - 解析 Supervisor 下发的 /data/options.json
-#      libstdc++ - 两个客户端二进制的动态依赖（libstdc++.so.6）
-#      bash      - s6 服务脚本与客户端的脚本使用 bash
-#      procps    - pgrep/pidof，用于守候 pgyvpn_svr 进程
+#      bash      - s6 服务脚本使用 bash
+#      procps    - pgrep/pidof
 #      iproute2  - 用 `ip address` 检测 oray_vnc 网卡
 #      nginx     - 提供 Ingress 管理页
 #    不覆盖 /etc/apk/repositories：官方基础镜像自带与自身 ABI 匹配的 v3.24 源。
@@ -30,7 +34,9 @@ RUN \
         bash \
         iproute2 \
         jq \
+        libgcc \
         libstdc++ \
+        libuuid \
         nginx \
         procps
 

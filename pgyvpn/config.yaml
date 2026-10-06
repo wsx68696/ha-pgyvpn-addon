@@ -2,7 +2,7 @@
 name: 蒲公英组网
 version: 2.0.0
 slug: pgyvpn
-description: 让 Home Assistant OS 主机加入贝锐蒲公英虚拟网络
+description: 让 Home Assistant OS 主机加入贝锐蒲公英虚拟网络（非官方第三方加载项，与贝锐无隶属关系）
 url: https://github.com/wsx68696/ha-pgyvpn-addon
 arch:
   - aarch64

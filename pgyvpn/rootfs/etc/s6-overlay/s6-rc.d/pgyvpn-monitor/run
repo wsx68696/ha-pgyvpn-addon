@@ -3,6 +3,10 @@
 # 登录蒲公英账号，并保留原 pgyvpn_monitor 的「oray_vnc 网卡消失则重连」逻辑。
 # s6 负责进程重启，这里不需要自己 fork 轮询。
 # 不使用 bashio：s6 的 run 脚本不会自动加载 bashio 库，直接 echo 更可靠。
+#
+# 注意顺序：oray_vnc 网卡是登录成功之后才由客户端创建的
+# （客户端输出 "Logged in successfully" 后紧跟 "Set 'oray_vnc' persistent"），
+# 所以这里先登录，再等待网卡出现。
 set -e
 
 OPTIONS_FILE="/data/options.json"
@@ -19,27 +23,42 @@ fi
 
 export PGY_USERNAME PGY_PASSWORD
 
-# 等守护进程把 oray_vnc 网卡拉起来
-for _ in $(seq 1 60); do
-    if ip address 2>/dev/null | grep -q 'oray_vnc'; then
+# 等客户端守护进程就绪（socket/配置文件），再登录
+for _ in $(seq 1 30); do
+    if pgrep -x pgyvpn_svr >/dev/null 2>&1; then
         break
     fi
     sleep 2
 done
 
-if ip address 2>/dev/null | grep -q 'oray_vnc'; then
-    echo "[pgyvpn-monitor] oray_vnc 网卡已就绪，正在登录。"
-else
-    echo "[pgyvpn-monitor] WARNING: 等待 oray_vnc 网卡超时，仍然尝试登录。"
+if ! pgrep -x pgyvpn_svr >/dev/null 2>&1; then
+    echo "[pgyvpn-monitor] ERROR: 客户端守护进程 pgyvpn_svr 未在运行，无法登录。"
+    exit 1
 fi
 
+echo "[pgyvpn-monitor] 正在登录蒲公英账号（${PGY_USERNAME}）。"
 if pgyvisitor login -u "${PGY_USERNAME}" -p "${PGY_PASSWORD}"; then
     echo "[pgyvpn-monitor] 登录命令已提交。"
 else
-    echo "[pgyvpn-monitor] WARNING: 登录命令返回非零状态，请查看客户端输出。"
+    echo "[pgyvpn-monitor] WARNING: 登录命令返回非零状态，请查看上面客户端输出。"
 fi
 
-# 保持前台存活，并按原 monitor 逻辑做网卡存活检查
+# 网卡在登录成功后才会建立，此处仅为确认，超时不代表失败
+if ip address 2>/dev/null | grep -q 'oray_vnc'; then
+    echo "[pgyvpn-monitor] oray_vnc 网卡已建立。"
+else
+    for _ in $(seq 1 30); do
+        if ip address 2>/dev/null | grep -q 'oray_vnc'; then break; fi
+        sleep 2
+    done
+    if ip address 2>/dev/null | grep -q 'oray_vnc'; then
+        echo "[pgyvpn-monitor] oray_vnc 网卡已建立。"
+    else
+        echo "[pgyvpn-monitor] 尚未检测到 oray_vnc 网卡；若持续如此，请确认该成员已在蒲公英后台加入网络。"
+    fi
+fi
+
+# 保持前台存活，并保留原 monitor 的网卡存活检查
 while true; do
     sleep 30
 

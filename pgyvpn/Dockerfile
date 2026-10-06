@@ -32,6 +32,7 @@ ARG BUILD_VERSION
 RUN \
     apk add --no-cache \
         bash \
+        dmidecode \
         iproute2 \
         jq \
         libgcc \

@@ -1,7 +1,7 @@
 configuration:
   username:
     name: 贝锐账号或 UID
-    description: 用于登录蒲公英客户端的账号或成员 UID。
+    description: 用于登录蒲公英客户端的贝锐账号或成员 UID。
   password:
     name: 蒲公英密码
     description: 对应账号的登录密码。Home Assistant 会将此字段按密码类型处理。

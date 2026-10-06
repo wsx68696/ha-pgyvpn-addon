@@ -1,0 +1,56 @@
+#!/command/with-contenv bash
+# shellcheck shell=bash
+# 取代原 pgyvpn_monitor 的 30 秒轮询循环（s6 负责重启，不需要自己 fork 轮询）。
+# 只保留原脚本真正的业务逻辑：登录，以及 oray_vnc 网卡消失时重连。
+set -e
+
+OPTIONS_FILE="/data/options.json"
+PIDFILE="/var/run/pgyvpn-monitor.pid"
+
+PGY_USERNAME="$(jq -er '.username | strings | select(length > 0)' "${OPTIONS_FILE}")" || {
+    bashio::log.error "未配置蒲公英账号，跳过登录。"
+    exit 1
+}
+PGY_PASSWORD="$(jq -er '.password | strings | select(length > 0)' "${OPTIONS_FILE}")" || {
+    bashio::log.error "未配置蒲公英密码，跳过登录。"
+    exit 1
+}
+export PGY_USERNAME PGY_PASSWORD
+
+# 供 finish 脚本清理
+echo "$$" > "${PIDFILE}"
+
+# 等守护进程把 oray_vnc 网卡拉起来
+for _ in $(seq 1 60); do
+    if ip address 2>/dev/null | grep -q 'oray_vnc'; then
+        break
+    fi
+    sleep 2
+done
+
+if ! ip address 2>/dev/null | grep -q 'oray_vnc'; then
+    bashio::log.warning "等待 oray_vnc 网卡超时，仍然尝试登录。"
+fi
+
+bashio::log.info "正在登录蒲公英账号……"
+if pgyvisitor login -u "${PGY_USERNAME}" -p "${PGY_PASSWORD}"; then
+    bashio::log.info "登录命令已提交。"
+else
+    bashio::log.warning "登录命令返回非零状态，请查看客户端日志。"
+fi
+
+# 保持前台存活，并按原 monitor 的逻辑做网卡存活检查
+while true; do
+    sleep 30
+
+    if [[ -f /etc/oray/pgyvpn/orayboxvpn_status.dat ]] \
+        && [[ "$(cat /etc/oray/pgyvpn/orayboxvpn_status.dat 2>/dev/null)" == "STATUS:LOG ON" ]]; then
+        if ! ip address 2>/dev/null | grep -q 'oray_vnc'; then
+            bashio::log.warning "登录状态下 oray_vnc 网卡消失，重启客户端服务。"
+            # 让 s6 重启 pgyvpn 服务（s6-overlay v3 的监督目录）
+            s6-svc -r /run/service/pgyvpn 2>/dev/null \
+                || s6-svc -r /var/run/s6/services/pgyvpn 2>/dev/null \
+                || bashio::log.warning "无法通知 s6 重启，请手动重启加载项。"
+        fi
+    fi
+done

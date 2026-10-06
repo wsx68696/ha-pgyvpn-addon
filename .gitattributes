@@ -1,5 +1,12 @@
 * text=auto
 *.sh text eol=lf
-Dockerfile text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+Dockerfile text eol=lf
+CHANGELOG.md text eol=lf
+README.md text eol=lf
+DOCS.md text eol=lf
+
+# s6-overlay 服务脚本必须是 LF（可执行位由 Dockerfile 的 chmod 设置，
+# 不依赖 git 的 filemode，因为在 Windows 上无法记录）
+pgyvpn/rootfs/etc/s6-overlay/s6-rc.d/** text eol=lf

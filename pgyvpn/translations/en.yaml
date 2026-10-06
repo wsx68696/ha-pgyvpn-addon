@@ -1,0 +1,7 @@
+configuration:
+  username:
+    name: Oray account or member UID
+    description: The Oray account or member UID used to sign in to the PgyVPN client.
+  password:
+    name: PgyVPN password
+    description: Password for that account. Home Assistant treats this field as a secret.

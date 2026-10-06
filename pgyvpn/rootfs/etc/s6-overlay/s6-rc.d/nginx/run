@@ -1,7 +1,8 @@
 #!/command/with-contenv bash
 # shellcheck shell=bash
 # Ingress 管理页。只监听 8099，并只允许 Supervisor 的 ingress 代理访问。
+# 不使用 bashio：s6 的 run 脚本不会自动加载 bashio 库。
 set -e
 
-bashio::log.info "正在启动 Ingress 管理页（端口 8099）。"
+echo "[nginx] 正在启动 Ingress 管理页（端口 8099）。"
 exec nginx -g 'daemon off;'

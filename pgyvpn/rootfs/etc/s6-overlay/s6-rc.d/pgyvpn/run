@@ -1,56 +1,47 @@
 #!/command/with-contenv bash
 # shellcheck shell=bash
 # 启动蒲公英客户端守护进程（取代原 OpenRC 的 `service pgyvpn start`）。
-#
-# 注意：客户端用 `-d` 自行守护化（vendor 的 pgyvpn_monitor 就是这么调用的），
-# 所以这里不能直接把它当 s6 的前台进程。改为「启动 -> 守候 PID -> 退出时让 s6 重启」。
+# 不使用 bashio：s6 的 run 脚本不会自动加载 bashio 库，直接 echo 更可靠。
 set -e
 
 OPTIONS_FILE="/data/options.json"
 CONFIG_FILE="/etc/oray/pgyvpn/config.ini"
 
 if [[ ! -r "${OPTIONS_FILE}" ]]; then
-    bashio::log.error "找不到 Home Assistant 配置文件：${OPTIONS_FILE}"
+    echo "[pgyvpn] ERROR: 找不到 Home Assistant 配置文件：${OPTIONS_FILE}"
     exit 1
 fi
 
 if ! PGY_USERNAME="$(jq -er '.username | strings | select(length > 0)' "${OPTIONS_FILE}")"; then
-    bashio::log.error "请在加载项配置中填写蒲公英账号或 UID。"
+    echo "[pgyvpn] ERROR: 请在加载项配置中填写蒲公英账号或 UID。"
     exit 1
 fi
 
 if ! PGY_PASSWORD="$(jq -er '.password | strings | select(length > 0)' "${OPTIONS_FILE}")"; then
-    bashio::log.error "请在加载项配置中填写蒲公英密码。"
+    echo "[pgyvpn] ERROR: 请在加载项配置中填写蒲公英密码。"
     exit 1
 fi
 
 if [[ ! -c /dev/net/tun ]]; then
-    bashio::log.error "容器内未找到 /dev/net/tun；请确认 HAOS 内核启用了 TUN 设备。"
+    echo "[pgyvpn] ERROR: 容器内未找到 /dev/net/tun；请确认 HAOS 内核启用了 TUN 设备。"
     exit 1
 fi
 
 mkdir -p /data/pgyvpn /data/oray-log/pgyvpn /var/log/oray
 
 if [[ ! -s "${CONFIG_FILE}" ]]; then
-    bashio::log.error "客户端配置缺失：${CONFIG_FILE}"
+    echo "[pgyvpn] ERROR: 客户端配置缺失：${CONFIG_FILE}"
     exit 1
 fi
 
-bashio::log.info "正在启动蒲公英客户端（账号：${PGY_USERNAME}）"
+echo "[pgyvpn] 正在启动蒲公英客户端守护进程（账号：${PGY_USERNAME}）。"
 
-# 与 vendor 的 pgyvpn_monitor 完全一致的调用参数
-/usr/sbin/pgyvpn_svr \
-    -R -A -d --mlink -t \
+# 前台运行，交给 s6 监管；异常退出由 s6 自动重启。
+# 注意不要用 -d（守护化），否则 s6 监管的会是一个立刻退出的父进程。
+exec /usr/sbin/pgyvpn_svr \
+    -R -A --mlink -t \
     -i pgy-api.oray.com \
     -K 255.255.255.255 \
     -p /var/log/oray/pgyvpn_svr \
     -f "${CONFIG_FILE}" \
     --logmask 0xFFFFFFF7
-
-# 守候守护进程；它退出则本服务退出，交由 s6 重启
-while pgrep -x pgyvpn_svr >/dev/null 2>&1; do
-    sleep 10
-done
-
-bashio::log.warning "蒲公英客户端进程已退出。"
-exit 1

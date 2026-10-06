@@ -21,6 +21,10 @@
 - **新增** `icon.png`、`logo.png`、`translations/`、`CHANGELOG.md`，
   并补齐 `io.hass.name` / `io.hass.description` 镜像标签。
 - **Ingress 端口保持 8099**，并仅允许 Supervisor 代理 `172.30.32.2` 访问。
+- **换用贝锐官方图标**：`icon.png` 取自官方 Windows 客户端
+  `PgyVisitorEnt_6.15.8.33010_x64.exe` 的 `RT_ICON` 资源（id 6，128×128 32bpp，
+  原生尺寸未缩放）；`logo.png` 使用贝锐官网横版组合标。来源与权利说明见
+  [`BRAND-ASSETS.md`](BRAND-ASSETS.md)。
 
 ### 开发过程中修掉的问题
 
